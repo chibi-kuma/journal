@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Journal</title>
+  <meta name="theme-color" content="#FDF2F6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Journal">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <main id="content">
+
+    <!-- Vue : page d'une journée -->
+    <section id="view-day" class="view">
+      <header class="day-header">
+        <button id="btn-prev-day" class="icon-btn" aria-label="Jour précédent">‹</button>
+        <div class="day-title-wrap">
+          <h1 id="day-title"></h1>
+          <button id="btn-today" class="pill-btn hidden">Revenir à aujourd’hui</button>
+        </div>
+        <button id="btn-next-day" class="icon-btn" aria-label="Jour suivant">›</button>
+      </header>
+      <div id="moments-list"></div>
+      <div class="add-btn-space"></div>
+    </section>
+
+    <!-- Vue : liste des journées -->
+    <section id="view-days" class="view hidden">
+      <header class="simple-header"><h1>Journées</h1></header>
+      <div class="jump-row">
+        <label class="jump-label" for="jump-date">Aller à une date</label>
+        <input type="date" id="jump-date">
+      </div>
+      <div id="days-list"></div>
+    </section>
+
+    <!-- Vue : recherche -->
+    <section id="view-search" class="view hidden">
+      <header class="simple-header"><h1>Recherche</h1></header>
+      <input type="search" id="search-input" placeholder="Rechercher dans le journal" autocomplete="off">
+      <div id="search-results"></div>
+    </section>
+
+    <!-- Vue : réglages -->
+    <section id="view-settings" class="view hidden">
+      <header class="simple-header"><h1>Sauvegarde</h1></header>
+      <div class="settings-card">
+        <button id="btn-export" class="big-btn">Exporter le journal</button>
+        <p id="last-export" class="settings-note"></p>
+      </div>
+      <div class="settings-card">
+        <button id="btn-import" class="big-btn secondary">Importer une sauvegarde</button>
+        <input type="file" id="import-file" accept=".zip" class="hidden">
+        <p class="settings-note">L’import ajoute les moments de la sauvegarde. Il ne supprime rien.</p>
+      </div>
+      <p id="storage-info" class="settings-note center"></p>
+    </section>
+
+  </main>
+
+  <!-- Bouton ajouter -->
+  <button id="btn-add" class="add-btn">+ Ajouter un moment</button>
+
+  <!-- Barre d'onglets -->
+  <nav id="tabbar">
+    <button class="tab active" data-tab="day">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+      <span>Aujourd’hui</span>
+    </button>
+    <button class="tab" data-tab="days">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      <span>Journées</span>
+    </button>
+    <button class="tab" data-tab="search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/></svg>
+      <span>Recherche</span>
+    </button>
+    <button class="tab" data-tab="settings">
+      <svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M5 8h14M5 8a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM19 16H5M19 16a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/></svg>
+      <span>Sauvegarde</span>
+    </button>
+  </nav>
+
+  <!-- Éditeur de moment -->
+  <div id="editor" class="sheet hidden">
+    <header class="sheet-header">
+      <button id="editor-cancel" class="text-btn">Annuler</button>
+      <span id="editor-time" class="time-badge"></span>
+      <button id="editor-save" class="text-btn strong">OK</button>
+    </header>
+    <textarea id="editor-text" placeholder="Écris ton moment…"></textarea>
+    <div id="editor-photos"></div>
+    <button id="editor-add-photo" class="big-btn secondary">Ajouter une photo</button>
+    <input type="file" id="photo-input" accept="image/*" multiple class="hidden">
+    <button id="editor-delete" class="big-btn danger hidden">Supprimer ce moment</button>
+  </div>
+
+  <!-- Visionneuse photo -->
+  <div id="photo-viewer" class="hidden">
+    <img id="photo-viewer-img" alt="">
+  </div>
+
+  <script src="zip.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
