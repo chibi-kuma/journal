@@ -357,6 +357,9 @@ async function openEditor(moment) {
   }
 
   $('editor-text').value = moment ? moment.text : '';
+  const dateInput = $('editor-date');
+  dateInput.value = editorState.day;
+  dateInput.max = dayKey(new Date());
   $('editor-time').textContent = formatTime(editorState.createdAt);
   $('editor-delete').classList.toggle('hidden', !moment);
   renderEditorPhotos();
@@ -417,9 +420,12 @@ async function saveEditor() {
     forgetImageUrl(id);
   }
 
+  let day = $('editor-date').value;
+  if (!day || day > dayKey(new Date())) day = editorState.day;
+
   await dbPutMoment({
     id: editorState.id || newId(),
-    day: editorState.day,
+    day,
     createdAt: editorState.createdAt,
     updatedAt: new Date().toISOString(),
     text,
@@ -427,6 +433,8 @@ async function saveEditor() {
   });
 
   closeEditor();
+  // On affiche la page du jour où le moment a été rangé
+  if (day !== state.day) state.day = day;
   renderDay();
 }
 

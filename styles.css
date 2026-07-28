@@ -379,6 +379,26 @@ h1 {
   font-size: 18px;
 }
 
+.editor-date-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+}
+.editor-date-row label { font-weight: 600; }
+
+#editor-date {
+  border: none;
+  background: var(--pink-soft);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--text);
+}
+
 #editor-text {
   width: 100%;
   min-height: 160px;
