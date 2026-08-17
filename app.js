@@ -533,11 +533,16 @@ async function exportJournal() {
   try {
     const file = await buildExportFile();
 
+    // La date est notée dès que le fichier est prêt : iOS ne signale pas
+    // toujours la fin d'un envoi AirDrop à l'application.
+    localStorage.setItem('lastExport', new Date().toISOString());
+    updateLastExportNote();
+
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({ files: [file] });
       } catch (err) {
-        if (err.name === 'AbortError') return;   // partage annulé : pas d'export
+        if (err.name === 'AbortError') return;   // partage annulé
         throw err;
       }
     } else {
@@ -547,9 +552,6 @@ async function exportJournal() {
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 60000);
     }
-
-    localStorage.setItem('lastExport', new Date().toISOString());
-    updateLastExportNote();
   } catch (err) {
     alert('L’export a échoué : ' + err.message);
   } finally {
