@@ -223,6 +223,7 @@ async function renderDay() {
 async function buildMomentCard(moment) {
   const card = el('article', 'moment-card');
   card.appendChild(el('span', 'time-badge', formatTime(moment.createdAt)));
+  if (moment.title) card.appendChild(el('h3', 'moment-title', moment.title));
   if (moment.text) card.appendChild(el('p', 'moment-text', moment.text));
 
   if (moment.imageIds && moment.imageIds.length) {
@@ -273,7 +274,7 @@ async function renderDays() {
 
     const dayMoments = byDay.get(day);
     dayMoments.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    const firstText = dayMoments.map(m => m.text).find(t => t) || '';
+    const firstText = dayMoments.map(m => m.title || m.text).find(t => t) || '';
     const photoCount = dayMoments.reduce((n, m) => n + (m.imageIds ? m.imageIds.length : 0), 0);
 
     const item = el('div', 'day-item');
@@ -309,29 +310,39 @@ async function renderSearch() {
   moments.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   for (const m of moments) {
-    if (!m.text) continue;
-    const { norm, map } = normalizeWithMap(m.text);
-    const idx = norm.indexOf(query);
-    if (idx < 0) continue;
-
-    const start = map[idx];
-    const end = map[idx + query.length - 1] + 1;
+    const titleFrag = m.title ? markedFragment(m.title, query, 'result-title') : null;
+    const textFrag = m.text ? markedFragment(m.text, query, 'result-text') : null;
+    if (!titleFrag && !textFrag) continue;
 
     const card = el('div', 'result-card');
     card.appendChild(el('div', 'result-date',
       formatDayLong(m.day) + ' · ' + formatTime(m.createdAt)));
 
-    const textDiv = el('div', 'result-text');
-    const from = Math.max(0, start - 60);
-    if (from > 0) textDiv.appendChild(document.createTextNode('… '));
-    textDiv.appendChild(document.createTextNode(m.text.slice(from, start)));
-    textDiv.appendChild(el('mark', null, m.text.slice(start, end)));
-    textDiv.appendChild(document.createTextNode(m.text.slice(end)));
-    card.appendChild(textDiv);
+    if (titleFrag) card.appendChild(titleFrag);
+    else if (m.title) card.appendChild(el('div', 'result-title', m.title));
+    if (textFrag) card.appendChild(textFrag);
+    else if (m.text) card.appendChild(el('div', 'result-text', m.text));
 
     card.addEventListener('click', () => gotoDay(m.day));
     results.appendChild(card);
   }
+}
+
+/* Fragment de texte avec le mot trouvé surligné, ou null si absent */
+function markedFragment(text, query, className) {
+  const { norm, map } = normalizeWithMap(text);
+  const idx = norm.indexOf(query);
+  if (idx < 0) return null;
+
+  const start = map[idx];
+  const end = map[idx + query.length - 1] + 1;
+  const div = el('div', className);
+  const from = Math.max(0, start - 60);
+  if (from > 0) div.appendChild(document.createTextNode('… '));
+  div.appendChild(document.createTextNode(text.slice(from, start)));
+  div.appendChild(el('mark', null, text.slice(start, end)));
+  div.appendChild(document.createTextNode(text.slice(end)));
+  return div;
 }
 
 /* ==================== Éditeur de moment ==================== */
@@ -356,6 +367,7 @@ async function openEditor(moment) {
     }
   }
 
+  $('editor-title').value = moment ? (moment.title || '') : '';
   $('editor-text').value = moment ? moment.text : '';
   const dateInput = $('editor-date');
   dateInput.value = editorState.day;
@@ -393,14 +405,16 @@ function closeEditor() {
 }
 
 async function saveEditor() {
+  const title = $('editor-title').value.trim();
   const text = $('editor-text').value.trim();
   const isNew = !editorState.id;
+  const hasContent = title || text || editorState.photos.length > 0;
 
-  if (isNew && !text && editorState.photos.length === 0) {
+  if (isNew && !hasContent) {
     closeEditor();
     return;
   }
-  if (!isNew && !text && editorState.photos.length === 0) {
+  if (!isNew && !hasContent) {
     return deleteFromEditor();
   }
 
@@ -428,6 +442,7 @@ async function saveEditor() {
     day,
     createdAt: editorState.createdAt,
     updatedAt: new Date().toISOString(),
+    title,
     text,
     imageIds
   });
