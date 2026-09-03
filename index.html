@@ -103,14 +103,22 @@
     <input type="text" id="editor-title" placeholder="Titre (facultatif)" autocomplete="off">
     <textarea id="editor-text" placeholder="Écris ton moment…"></textarea>
     <div id="editor-photos"></div>
-    <button id="editor-add-photo" class="big-btn secondary">Ajouter une photo</button>
+    <button id="editor-add-photo" class="big-btn secondary">Ajouter une ou plusieurs photos</button>
     <input type="file" id="photo-input" accept="image/*" multiple class="hidden">
     <button id="editor-delete" class="big-btn danger hidden">Supprimer ce moment</button>
   </div>
 
   <!-- Visionneuse photo -->
-  <div id="photo-viewer" class="hidden">
-    <img id="photo-viewer-img" alt="">
+  <div id="photo-viewer" class="hidden" role="dialog" aria-modal="true" aria-label="Photo agrandie">
+    <button id="photo-viewer-close" class="viewer-close" aria-label="Fermer la photo">&times;</button>
+    <div id="photo-viewer-stage">
+      <img id="photo-viewer-img" alt="Photo agrandie" draggable="false">
+    </div>
+    <div class="viewer-controls" aria-label="Commandes de zoom">
+      <button id="photo-viewer-zoom-out" aria-label="Dézoomer">&minus;</button>
+      <span id="photo-viewer-zoom-value" aria-live="polite">100 %</span>
+      <button id="photo-viewer-zoom-in" aria-label="Zoomer">+</button>
+    </div>
   </div>
 
   <script src="zip.js"></script>

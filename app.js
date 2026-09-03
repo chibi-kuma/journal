@@ -233,7 +233,17 @@ async function buildMomentCard(moment) {
       if (!url) continue;
       const img = el('img');
       img.src = url;
+      img.alt = 'Photo du moment — toucher pour agrandir';
+      img.tabIndex = 0;
+      img.setAttribute('role', 'button');
       img.addEventListener('click', e => { e.stopPropagation(); openViewer(url); });
+      img.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          openViewer(url);
+        }
+      });
       photos.appendChild(img);
     }
     card.appendChild(photos);
@@ -468,22 +478,93 @@ async function deleteFromEditor() {
 }
 
 async function addPhotos(fileList) {
+  const button = $('editor-add-photo');
+  const originalLabel = button.textContent;
+  let failed = 0;
+  button.disabled = true;
+  button.textContent = fileList.length > 1 ? 'Ajout des photos…' : 'Ajout de la photo…';
   for (const file of fileList) {
     try {
       const blob = await processImageFile(file);
       editorState.photos.push({ blob, url: URL.createObjectURL(blob) });
     } catch (err) {
-      alert('Cette image n’a pas pu être ajoutée.');
+      failed++;
     }
   }
+  button.disabled = false;
+  button.textContent = originalLabel;
   renderEditorPhotos();
+  if (failed) {
+    alert(failed === 1
+      ? 'Une image n’a pas pu être ajoutée.'
+      : failed + ' images n’ont pas pu être ajoutées.');
+  }
 }
 
 /* ==================== Visionneuse ==================== */
 
+const viewerState = {
+  scale: 1,
+  x: 0,
+  y: 0,
+  pointers: new Map(),
+  pinchDistance: 0
+};
+
+function clampViewerPan() {
+  const img = $('photo-viewer-img');
+  const stage = $('photo-viewer-stage');
+  const maxX = Math.max(0, (img.clientWidth * viewerState.scale - stage.clientWidth) / 2);
+  const maxY = Math.max(0, (img.clientHeight * viewerState.scale - stage.clientHeight) / 2);
+  viewerState.x = Math.max(-maxX, Math.min(maxX, viewerState.x));
+  viewerState.y = Math.max(-maxY, Math.min(maxY, viewerState.y));
+}
+
+function applyViewerTransform() {
+  clampViewerPan();
+  $('photo-viewer-img').style.transform =
+    `translate3d(${viewerState.x}px, ${viewerState.y}px, 0) scale(${viewerState.scale})`;
+  $('photo-viewer-zoom-value').textContent = Math.round(viewerState.scale * 100) + ' %';
+  $('photo-viewer-zoom-out').disabled = viewerState.scale <= 1;
+  $('photo-viewer-zoom-in').disabled = viewerState.scale >= 4;
+}
+
+function setViewerZoom(scale) {
+  viewerState.scale = Math.max(1, Math.min(4, scale));
+  if (viewerState.scale === 1) {
+    viewerState.x = 0;
+    viewerState.y = 0;
+  }
+  applyViewerTransform();
+}
+
+function resetViewerZoom() {
+  viewerState.scale = 1;
+  viewerState.x = 0;
+  viewerState.y = 0;
+  viewerState.pointers.clear();
+  viewerState.pinchDistance = 0;
+  applyViewerTransform();
+}
+
 function openViewer(url) {
   $('photo-viewer-img').src = url;
   $('photo-viewer').classList.remove('hidden');
+  document.body.classList.add('viewer-open');
+  resetViewerZoom();
+  $('photo-viewer-close').focus();
+}
+
+function closeViewer() {
+  $('photo-viewer').classList.add('hidden');
+  document.body.classList.remove('viewer-open');
+  $('photo-viewer-img').src = '';
+  viewerState.pointers.clear();
+}
+
+function pointerDistance() {
+  const points = [...viewerState.pointers.values()];
+  return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
 }
 
 /* ==================== Export / import ==================== */
@@ -644,12 +725,50 @@ function init() {
   $('editor-save').addEventListener('click', saveEditor);
   $('editor-delete').addEventListener('click', deleteFromEditor);
   $('editor-add-photo').addEventListener('click', () => $('photo-input').click());
-  $('photo-input').addEventListener('change', e => {
-    if (e.target.files.length) addPhotos(e.target.files);
+  $('photo-input').addEventListener('change', async e => {
+    if (e.target.files.length) await addPhotos(e.target.files);
     e.target.value = '';
   });
 
-  $('photo-viewer').addEventListener('click', () => $('photo-viewer').classList.add('hidden'));
+  const viewer = $('photo-viewer');
+  const viewerStage = $('photo-viewer-stage');
+  $('photo-viewer-close').addEventListener('click', closeViewer);
+  $('photo-viewer-zoom-in').addEventListener('click', () => setViewerZoom(viewerState.scale + 0.5));
+  $('photo-viewer-zoom-out').addEventListener('click', () => setViewerZoom(viewerState.scale - 0.5));
+  viewer.addEventListener('click', e => { if (e.target === viewer) closeViewer(); });
+  $('photo-viewer-img').addEventListener('dblclick', () =>
+    setViewerZoom(viewerState.scale > 1 ? 1 : 2));
+  viewerStage.addEventListener('pointerdown', e => {
+    viewerStage.setPointerCapture(e.pointerId);
+    viewerState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (viewerState.pointers.size === 2) viewerState.pinchDistance = pointerDistance();
+  });
+  viewerStage.addEventListener('pointermove', e => {
+    const previous = viewerState.pointers.get(e.pointerId);
+    if (!previous) return;
+    viewerState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (viewerState.pointers.size === 2) {
+      const distance = pointerDistance();
+      if (viewerState.pinchDistance) {
+        setViewerZoom(viewerState.scale * distance / viewerState.pinchDistance);
+      }
+      viewerState.pinchDistance = distance;
+    } else if (viewerState.scale > 1) {
+      viewerState.x += e.clientX - previous.x;
+      viewerState.y += e.clientY - previous.y;
+      applyViewerTransform();
+    }
+  });
+  const endViewerPointer = e => {
+    viewerState.pointers.delete(e.pointerId);
+    viewerState.pinchDistance = viewerState.pointers.size === 2 ? pointerDistance() : 0;
+  };
+  viewerStage.addEventListener('pointerup', endViewerPointer);
+  viewerStage.addEventListener('pointercancel', endViewerPointer);
+  window.addEventListener('resize', applyViewerTransform);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !viewer.classList.contains('hidden')) closeViewer();
+  });
 
   $('jump-date').addEventListener('change', e => { if (e.target.value) gotoDay(e.target.value); });
   $('jump-date').max = dayKey(new Date());

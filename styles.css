@@ -136,6 +136,12 @@ h1 {
   height: 92px;
   object-fit: cover;
   border-radius: 12px;
+  cursor: zoom-in;
+}
+
+.moment-photos img:focus-visible {
+  outline: 3px solid var(--pink);
+  outline-offset: 3px;
 }
 
 /* ---------- Bouton ajouter ---------- */
@@ -480,11 +486,83 @@ h1 {
   inset: 0;
   z-index: 100;
   background: rgba(20, 10, 16, 0.92);
+  padding: calc(var(--safe-top) + 12px) 12px calc(var(--safe-bottom) + 12px);
+}
+
+body.viewer-open {
+  overflow: hidden;
+}
+
+#photo-viewer-stage {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  touch-action: none;
 }
+
 #photo-viewer img {
   max-width: 100%;
   max-height: 100%;
+  object-fit: contain;
+  transform-origin: center;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.viewer-close {
+  position: absolute;
+  z-index: 2;
+  top: calc(var(--safe-top) + 12px);
+  right: 14px;
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text);
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.viewer-controls {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 18px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text);
+}
+
+.viewer-controls button {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--pink-soft);
+  color: var(--pink-deep);
+  font-size: 27px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.viewer-controls button:disabled {
+  opacity: 0.4;
+}
+
+#photo-viewer-zoom-value {
+  min-width: 60px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
 }
