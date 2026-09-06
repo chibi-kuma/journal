@@ -290,7 +290,7 @@ async function renderDays() {
     const item = el('div', 'day-item');
     const dateBox = el('div', 'day-item-date');
     dateBox.appendChild(el('span', 'd', String(date.getDate())));
-    dateBox.appendChild(el('span', 'w', date.toLocaleDateString('fr-CA', { weekday: 'short' })));
+    dateBox.appendChild(el('span', 'w', date.toLocaleDateString('fr-CA', { weekday: 'long' })));
     item.appendChild(dateBox);
 
     const body = el('div', 'day-item-body');
@@ -704,7 +704,10 @@ function switchTab(tab) {
     b.classList.toggle('active', b.dataset.tab === tab));
 
   if (tab === 'day') renderDay();
-  if (tab === 'days') renderDays();
+  if (tab === 'days') {
+    $('jump-date').value = state.day;
+    renderDays();
+  }
   if (tab === 'search') { renderSearch(); $('search-input').focus(); }
   if (tab === 'settings') { updateLastExportNote(); updateStorageInfo(); }
   window.scrollTo(0, 0);
@@ -772,6 +775,7 @@ function init() {
 
   $('jump-date').addEventListener('change', e => { if (e.target.value) gotoDay(e.target.value); });
   $('jump-date').max = dayKey(new Date());
+  $('jump-date').value = state.day;
 
   $('search-input').addEventListener('input', () => {
     clearTimeout(searchTimer);

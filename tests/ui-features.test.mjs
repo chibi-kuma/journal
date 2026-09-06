@@ -26,5 +26,16 @@ test('saved photos open in an accessible zoomable viewer', () => {
 });
 
 test('the offline cache version is refreshed for the PWA update', () => {
-  assert.match(serviceWorker, /journal-v6/);
+  assert.match(serviceWorker, /journal-v7/);
+});
+
+test('day cards use full weekday names instead of ambiguous abbreviations', () => {
+  assert.match(js, /weekday: 'long'/);
+  assert.doesNotMatch(js, /weekday: 'short'/);
+  assert.match(css, /\.day-item-date[\s\S]*width: 72px/);
+});
+
+test('the date picker is initialized and remains legible on iPhone', () => {
+  assert.match(js, /\$\('jump-date'\)\.value = state\.day/);
+  assert.match(css, /#jump-date[\s\S]*-webkit-text-fill-color: var\(--text\)/);
 });
