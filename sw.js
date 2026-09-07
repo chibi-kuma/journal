@@ -1,7 +1,7 @@
 /* Service worker : permet à l'application de fonctionner sans internet. */
 'use strict';
 
-const CACHE = 'journal-v7';
+const CACHE = 'journal-v8';
 const ASSETS = [
   './',
   'index.html',

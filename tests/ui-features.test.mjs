@@ -26,7 +26,7 @@ test('saved photos open in an accessible zoomable viewer', () => {
 });
 
 test('the offline cache version is refreshed for the PWA update', () => {
-  assert.match(serviceWorker, /journal-v7/);
+  assert.match(serviceWorker, /journal-v8/);
 });
 
 test('day cards use full weekday names instead of ambiguous abbreviations', () => {
@@ -38,4 +38,18 @@ test('day cards use full weekday names instead of ambiguous abbreviations', () =
 test('the date picker is initialized and remains legible on iPhone', () => {
   assert.match(js, /\$\('jump-date'\)\.value = state\.day/);
   assert.match(css, /#jump-date[\s\S]*-webkit-text-fill-color: var\(--text\)/);
+});
+
+test('opening an old day triggers only one render', () => {
+  const gotoDayBody = js.match(/function gotoDay\(key\) \{([\s\S]*?)\n\}/)?.[1] || '';
+  assert.match(gotoDayBody, /switchTab\('day'\)/);
+  assert.doesNotMatch(gotoDayBody, /renderDay\(\)/);
+});
+
+test('unfinished entries are saved and restored as drafts', () => {
+  assert.match(js, /DB_VERSION = 2/);
+  assert.match(js, /createObjectStore\('drafts'/);
+  assert.match(js, /async function saveEditorDraft\(\)/);
+  assert.match(js, /async function restoreEditorDraft\(\)/);
+  assert.match(js, /visibilityState === 'hidden'/);
 });

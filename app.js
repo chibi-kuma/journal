@@ -3,7 +3,7 @@
 /* ==================== Base de données ==================== */
 
 const DB_NAME = 'journal';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let dbPromise = null;
 
 function openDB() {
@@ -18,6 +18,9 @@ function openDB() {
         }
         if (!db.objectStoreNames.contains('images')) {
           db.createObjectStore('images', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('drafts')) {
+          db.createObjectStore('drafts', { keyPath: 'id' });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -78,6 +81,21 @@ async function dbPutImage(record) {
 async function dbDeleteImage(id) {
   const db = await openDB();
   return prom(db.transaction('images', 'readwrite').objectStore('images').delete(id));
+}
+
+async function dbGetDraft() {
+  const db = await openDB();
+  return prom(db.transaction('drafts').objectStore('drafts').get('editor'));
+}
+
+async function dbPutDraft(draft) {
+  const db = await openDB();
+  return prom(db.transaction('drafts', 'readwrite').objectStore('drafts').put(draft));
+}
+
+async function dbDeleteDraft() {
+  const db = await openDB();
+  return prom(db.transaction('drafts', 'readwrite').objectStore('drafts').delete('editor'));
 }
 
 /* ==================== Utilitaires ==================== */
@@ -256,7 +274,6 @@ async function buildMomentCard(moment) {
 function gotoDay(key) {
   state.day = key > dayKey(new Date()) ? dayKey(new Date()) : key;
   switchTab('day');
-  renderDay();
 }
 
 /* ==================== Vue : liste des journées ==================== */
@@ -360,6 +377,71 @@ function markedFragment(text, query, className) {
 /* editorState.photos : [{ id, url }] pour les photos déjà enregistrées,
    [{ blob, url }] pour les nouvelles */
 let editorState = null;
+let draftTimer = null;
+
+function editorHasContent() {
+  return $('editor-title').value.trim() ||
+    $('editor-text').value.trim() ||
+    editorState.photos.length > 0;
+}
+
+async function saveEditorDraft() {
+  clearTimeout(draftTimer);
+  if (!editorState) return;
+  if (!editorState.id && !editorHasContent()) {
+    await dbDeleteDraft();
+    return;
+  }
+
+  await dbPutDraft({
+    id: 'editor',
+    momentId: editorState.id,
+    createdAt: editorState.createdAt,
+    day: $('editor-date').value || editorState.day,
+    title: $('editor-title').value,
+    text: $('editor-text').value,
+    photos: editorState.photos.map(photo => photo.id ? { id: photo.id } : { blob: photo.blob }),
+    removedIds: [...editorState.removedIds],
+    savedAt: new Date().toISOString()
+  });
+}
+
+function scheduleEditorDraft() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => saveEditorDraft(), 250);
+}
+
+async function restoreEditorDraft() {
+  const draft = await dbGetDraft();
+  if (!draft) return;
+
+  editorState = {
+    id: draft.momentId || null,
+    createdAt: draft.createdAt || new Date().toISOString(),
+    day: draft.day || state.day,
+    photos: [],
+    removedIds: draft.removedIds || []
+  };
+
+  for (const photo of draft.photos || []) {
+    if (photo.id) {
+      const url = await imageUrl(photo.id);
+      if (url) editorState.photos.push({ id: photo.id, url });
+    } else if (photo.blob) {
+      editorState.photos.push({ blob: photo.blob, url: URL.createObjectURL(photo.blob) });
+    }
+  }
+
+  $('editor-title').value = draft.title || '';
+  $('editor-text').value = draft.text || '';
+  const dateInput = $('editor-date');
+  dateInput.value = editorState.day;
+  dateInput.max = dayKey(new Date());
+  $('editor-time').textContent = formatTime(editorState.createdAt);
+  $('editor-delete').classList.toggle('hidden', !editorState.id);
+  renderEditorPhotos();
+  $('editor').classList.remove('hidden');
+}
 
 async function openEditor(moment) {
   editorState = {
@@ -403,15 +485,18 @@ function renderEditorPhotos() {
       if (photo.id) editorState.removedIds.push(photo.id);
       editorState.photos.splice(i, 1);
       renderEditorPhotos();
+      saveEditorDraft();
     });
     wrap.appendChild(remove);
     zone.appendChild(wrap);
   });
 }
 
-function closeEditor() {
+async function closeEditor() {
+  clearTimeout(draftTimer);
   $('editor').classList.add('hidden');
   editorState = null;
+  await dbDeleteDraft();
 }
 
 async function saveEditor() {
@@ -421,7 +506,7 @@ async function saveEditor() {
   const hasContent = title || text || editorState.photos.length > 0;
 
   if (isNew && !hasContent) {
-    closeEditor();
+    await closeEditor();
     return;
   }
   if (!isNew && !hasContent) {
@@ -457,7 +542,7 @@ async function saveEditor() {
     imageIds
   });
 
-  closeEditor();
+  await closeEditor();
   // On affiche la page du jour où le moment a été rangé
   if (day !== state.day) state.day = day;
   renderDay();
@@ -473,7 +558,7 @@ async function deleteFromEditor() {
     }
   }
   await dbDeleteMoment(editorState.id);
-  closeEditor();
+  await closeEditor();
   renderDay();
 }
 
@@ -494,6 +579,7 @@ async function addPhotos(fileList) {
   button.disabled = false;
   button.textContent = originalLabel;
   renderEditorPhotos();
+  await saveEditorDraft();
   if (failed) {
     alert(failed === 1
       ? 'Une image n’a pas pu être ajoutée.'
@@ -715,7 +801,7 @@ function switchTab(tab) {
 
 /* ==================== Initialisation ==================== */
 
-function init() {
+async function init() {
   document.querySelectorAll('#tabbar .tab').forEach(btn =>
     btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
 
@@ -724,7 +810,7 @@ function init() {
   $('btn-today').addEventListener('click', () => { state.day = dayKey(new Date()); renderDay(); });
 
   $('btn-add').addEventListener('click', () => openEditor(null));
-  $('editor-cancel').addEventListener('click', closeEditor);
+  $('editor-cancel').addEventListener('click', () => closeEditor());
   $('editor-save').addEventListener('click', saveEditor);
   $('editor-delete').addEventListener('click', deleteFromEditor);
   $('editor-add-photo').addEventListener('click', () => $('photo-input').click());
@@ -732,6 +818,9 @@ function init() {
     if (e.target.files.length) await addPhotos(e.target.files);
     e.target.value = '';
   });
+  $('editor-title').addEventListener('input', scheduleEditorDraft);
+  $('editor-text').addEventListener('input', scheduleEditorDraft);
+  $('editor-date').addEventListener('change', saveEditorDraft);
 
   const viewer = $('photo-viewer');
   const viewerStage = $('photo-viewer-stage');
@@ -791,6 +880,9 @@ function init() {
 
   // Au retour dans l'app : si on suivait « aujourd'hui » et que la date a changé, on suit la nouvelle journée
   document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && editorState) {
+      saveEditorDraft();
+    }
     if (document.visibilityState === 'visible') {
       const today = dayKey(new Date());
       if (state.day === state.todayKey && today !== state.todayKey) {
@@ -807,7 +899,8 @@ function init() {
     navigator.serviceWorker.register('sw.js');
   }
 
-  renderDay();
+  await renderDay();
+  await restoreEditorDraft();
 }
 
 init();
