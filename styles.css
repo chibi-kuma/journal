@@ -554,6 +554,43 @@ body.viewer-open {
   cursor: pointer;
 }
 
+.viewer-counter {
+  position: absolute;
+  z-index: 2;
+  top: calc(var(--safe-top) + 24px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.viewer-nav {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 46px;
+  height: 54px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  font-size: 36px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.viewer-prev { left: 14px; }
+.viewer-next { right: 14px; }
+
+.viewer-nav:disabled {
+  opacity: 0.28;
+}
+
 .viewer-controls {
   position: absolute;
   z-index: 2;

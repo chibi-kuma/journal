@@ -111,9 +111,12 @@
   <!-- Visionneuse photo -->
   <div id="photo-viewer" class="hidden" role="dialog" aria-modal="true" aria-label="Photo agrandie">
     <button id="photo-viewer-close" class="viewer-close" aria-label="Fermer la photo">&times;</button>
+    <span id="photo-viewer-counter" class="viewer-counter hidden" aria-live="polite"></span>
+    <button id="photo-viewer-prev" class="viewer-nav viewer-prev hidden" aria-label="Photo précédente">‹</button>
     <div id="photo-viewer-stage">
       <img id="photo-viewer-img" alt="Photo agrandie" draggable="false">
     </div>
+    <button id="photo-viewer-next" class="viewer-nav viewer-next hidden" aria-label="Photo suivante">›</button>
     <div class="viewer-controls" aria-label="Commandes de zoom">
       <button id="photo-viewer-zoom-out" aria-label="Dézoomer">&minus;</button>
       <span id="photo-viewer-zoom-value" aria-live="polite">100 %</span>

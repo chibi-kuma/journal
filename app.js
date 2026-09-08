@@ -246,24 +246,27 @@ async function buildMomentCard(moment) {
 
   if (moment.imageIds && moment.imageIds.length) {
     const photos = el('div', 'moment-photos');
+    const photoUrls = [];
     for (const id of moment.imageIds) {
       const url = await imageUrl(id);
-      if (!url) continue;
+      if (url) photoUrls.push(url);
+    }
+    photoUrls.forEach((url, index) => {
       const img = el('img');
       img.src = url;
-      img.alt = 'Photo du moment — toucher pour agrandir';
+      img.alt = `Photo ${index + 1} sur ${photoUrls.length} — toucher pour agrandir`;
       img.tabIndex = 0;
       img.setAttribute('role', 'button');
-      img.addEventListener('click', e => { e.stopPropagation(); openViewer(url); });
+      img.addEventListener('click', e => { e.stopPropagation(); openViewer(photoUrls, index); });
       img.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           e.stopPropagation();
-          openViewer(url);
+          openViewer(photoUrls, index);
         }
       });
       photos.appendChild(img);
-    }
+    });
     card.appendChild(photos);
   }
 
@@ -590,11 +593,14 @@ async function addPhotos(fileList) {
 /* ==================== Visionneuse ==================== */
 
 const viewerState = {
+  photos: [],
+  index: 0,
   scale: 1,
   x: 0,
   y: 0,
   pointers: new Map(),
-  pinchDistance: 0
+  pinchDistance: 0,
+  swipeStart: null
 };
 
 function clampViewerPan() {
@@ -633,11 +639,28 @@ function resetViewerZoom() {
   applyViewerTransform();
 }
 
-function openViewer(url) {
-  $('photo-viewer-img').src = url;
+function showViewerPhoto(index) {
+  if (index < 0 || index >= viewerState.photos.length) return;
+  viewerState.index = index;
+  const total = viewerState.photos.length;
+  const multiple = total > 1;
+  const img = $('photo-viewer-img');
+  img.src = viewerState.photos[index];
+  img.alt = `Photo ${index + 1} sur ${total}`;
+  $('photo-viewer-counter').textContent = `${index + 1} / ${total}`;
+  $('photo-viewer-counter').classList.toggle('hidden', !multiple);
+  $('photo-viewer-prev').classList.toggle('hidden', !multiple);
+  $('photo-viewer-next').classList.toggle('hidden', !multiple);
+  $('photo-viewer-prev').disabled = index === 0;
+  $('photo-viewer-next').disabled = index === total - 1;
+  resetViewerZoom();
+}
+
+function openViewer(urls, index = 0) {
+  viewerState.photos = Array.isArray(urls) ? urls : [urls];
   $('photo-viewer').classList.remove('hidden');
   document.body.classList.add('viewer-open');
-  resetViewerZoom();
+  showViewerPhoto(index);
   $('photo-viewer-close').focus();
 }
 
@@ -645,7 +668,18 @@ function closeViewer() {
   $('photo-viewer').classList.add('hidden');
   document.body.classList.remove('viewer-open');
   $('photo-viewer-img').src = '';
+  viewerState.photos = [];
+  viewerState.index = 0;
   viewerState.pointers.clear();
+  viewerState.swipeStart = null;
+}
+
+function showPreviousViewerPhoto() {
+  showViewerPhoto(viewerState.index - 1);
+}
+
+function showNextViewerPhoto() {
+  showViewerPhoto(viewerState.index + 1);
 }
 
 function pointerDistance() {
@@ -825,6 +859,8 @@ async function init() {
   const viewer = $('photo-viewer');
   const viewerStage = $('photo-viewer-stage');
   $('photo-viewer-close').addEventListener('click', closeViewer);
+  $('photo-viewer-prev').addEventListener('click', showPreviousViewerPhoto);
+  $('photo-viewer-next').addEventListener('click', showNextViewerPhoto);
   $('photo-viewer-zoom-in').addEventListener('click', () => setViewerZoom(viewerState.scale + 0.5));
   $('photo-viewer-zoom-out').addEventListener('click', () => setViewerZoom(viewerState.scale - 0.5));
   viewer.addEventListener('click', e => { if (e.target === viewer) closeViewer(); });
@@ -832,13 +868,24 @@ async function init() {
     setViewerZoom(viewerState.scale > 1 ? 1 : 2));
   viewerStage.addEventListener('pointerdown', e => {
     viewerStage.setPointerCapture(e.pointerId);
-    viewerState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (viewerState.pointers.size === 2) viewerState.pinchDistance = pointerDistance();
+    viewerState.pointers.set(e.pointerId, {
+      x: e.clientX,
+      y: e.clientY,
+      startX: e.clientX,
+      startY: e.clientY
+    });
+    if (viewerState.pointers.size === 1 && viewerState.scale === 1) {
+      viewerState.swipeStart = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    }
+    if (viewerState.pointers.size === 2) {
+      viewerState.swipeStart = null;
+      viewerState.pinchDistance = pointerDistance();
+    }
   });
   viewerStage.addEventListener('pointermove', e => {
     const previous = viewerState.pointers.get(e.pointerId);
     if (!previous) return;
-    viewerState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    viewerState.pointers.set(e.pointerId, { ...previous, x: e.clientX, y: e.clientY });
     if (viewerState.pointers.size === 2) {
       const distance = pointerDistance();
       if (viewerState.pinchDistance) {
@@ -851,15 +898,28 @@ async function init() {
       applyViewerTransform();
     }
   });
-  const endViewerPointer = e => {
+  const endViewerPointer = (e, allowSwipe) => {
+    if (allowSwipe && viewerState.swipeStart &&
+        viewerState.swipeStart.id === e.pointerId &&
+        viewerState.pointers.size === 1 && viewerState.scale === 1) {
+      const dx = e.clientX - viewerState.swipeStart.x;
+      const dy = e.clientY - viewerState.swipeStart.y;
+      if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0) showNextViewerPhoto();
+        else showPreviousViewerPhoto();
+      }
+    }
     viewerState.pointers.delete(e.pointerId);
     viewerState.pinchDistance = viewerState.pointers.size === 2 ? pointerDistance() : 0;
+    viewerState.swipeStart = null;
   };
-  viewerStage.addEventListener('pointerup', endViewerPointer);
-  viewerStage.addEventListener('pointercancel', endViewerPointer);
+  viewerStage.addEventListener('pointerup', e => endViewerPointer(e, true));
+  viewerStage.addEventListener('pointercancel', e => endViewerPointer(e, false));
   window.addEventListener('resize', applyViewerTransform);
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !viewer.classList.contains('hidden')) closeViewer();
+    if (e.key === 'ArrowLeft' && !viewer.classList.contains('hidden')) showPreviousViewerPhoto();
+    if (e.key === 'ArrowRight' && !viewer.classList.contains('hidden')) showNextViewerPhoto();
   });
 
   $('jump-date').addEventListener('change', e => { if (e.target.value) gotoDay(e.target.value); });

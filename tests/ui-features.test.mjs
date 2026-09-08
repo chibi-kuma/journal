@@ -20,13 +20,13 @@ test('saved photos open in an accessible zoomable viewer', () => {
   assert.match(html, /id="photo-viewer"[^>]*role="dialog"[^>]*aria-modal="true"/);
   assert.match(html, /id="photo-viewer-zoom-in"/);
   assert.match(html, /id="photo-viewer-zoom-out"/);
-  assert.match(js, /openViewer\(url\)/);
+  assert.match(js, /openViewer\(photoUrls, index\)/);
   assert.match(js, /pointerDistance\(\)/);
   assert.match(css, /#photo-viewer-stage[\s\S]*touch-action: none/);
 });
 
 test('the offline cache version is refreshed for the PWA update', () => {
-  assert.match(serviceWorker, /journal-v8/);
+  assert.match(serviceWorker, /journal-v9/);
 });
 
 test('day cards use full weekday names instead of ambiguous abbreviations', () => {
@@ -52,4 +52,15 @@ test('unfinished entries are saved and restored as drafts', () => {
   assert.match(js, /async function saveEditorDraft\(\)/);
   assert.match(js, /async function restoreEditorDraft\(\)/);
   assert.match(js, /visibilityState === 'hidden'/);
+});
+
+test('the photo viewer supports browsing a multi-photo entry', () => {
+  assert.match(html, /id="photo-viewer-prev"/);
+  assert.match(html, /id="photo-viewer-next"/);
+  assert.match(html, /id="photo-viewer-counter"/);
+  assert.match(js, /function showPreviousViewerPhoto\(\)/);
+  assert.match(js, /function showNextViewerPhoto\(\)/);
+  assert.match(js, /Math\.abs\(dx\) >= 50/);
+  assert.match(js, /e\.key === 'ArrowLeft'/);
+  assert.match(js, /e\.key === 'ArrowRight'/);
 });
